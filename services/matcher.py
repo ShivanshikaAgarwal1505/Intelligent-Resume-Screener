@@ -6,4 +6,4 @@ def match_resume(resume_text, job_text):
     emb2 = get_embedding(job_text)
 
     score = cosine_similarity([emb1], [emb2])[0][0]
-    return round(float(score) * 100, 2)  # Convert to Python float here
+    return round(float(score) * 100, 2)  

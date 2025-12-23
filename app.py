@@ -1,53 +1,87 @@
 from flask import Flask, request, jsonify
-import os
-from services.parser import extract_text
-from services.matcher import match_resume
+from sentence_transformers import SentenceTransformer, util
 
 app = Flask(__name__)
 
-@app.route("/")
-def home():
-    return "Resume Screener API Running"
+# ------------------ LOAD MODEL ------------------
+model = SentenceTransformer("all-MiniLM-L6-v2")
 
-UPLOAD_FOLDER = "uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+# ------------------ SKILL LIST ------------------
+SKILLS = [
+    "python",
+    "java",
+    "machine learning",
+    "deep learning",
+    "nlp",
+    "data science",
+    "flask",
+    "docker",
+    "kubernetes",
+    "sql",
+    "spark"
+]
 
-@app.route("/upload_resume", methods=["POST"])
-def upload_resume():
-    if "resume" not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
+# ------------------ SKILL EXTRACTION ------------------
+def extract_skills(text):
+    text = text.lower()
+    found_skills = []
 
-    file = request.files["resume"]
+    for skill in SKILLS:
+        if skill in text:
+            found_skills.append(skill)
 
-    path = os.path.join(UPLOAD_FOLDER, file.filename)
-    file.save(path)
+    return list(set(found_skills))
 
-    text = extract_text(path)
-
-    print(request.files)
-
-    return jsonify({
-        "message": "Resume uploaded",
-        "text_preview": text[:500]
-    })
-
+# ------------------ MATCH API ------------------
 @app.route("/match", methods=["POST"])
-def match():
-    data = request.get_json()
+def match_resume():
+    data = request.get_json(silent=True)
 
-    resume = data.get("resume")
-    job = data.get("job")
+    if not data:
+        return jsonify({"error": "JSON body required"}), 400
 
-    if not resume or not job:
-        return jsonify({"error": "Resume and Job description required"}), 400
+    resume_text = data.get("resume_text")
+    job_text = data.get("job_text")
 
-    score = match_resume(resume, job)
+    if not resume_text or not job_text:
+        return jsonify({"error": "resume_text and job_text required"}), 400
+
+    # ---- Semantic similarity ----
+    resume_emb = model.encode(resume_text, convert_to_tensor=True)
+    job_emb = model.encode(job_text, convert_to_tensor=True)
+    similarity = util.cos_sim(resume_emb, job_emb).item() * 100
+
+    # ---- Skill extraction ----
+    resume_skills = extract_skills(resume_text)
+    job_skills = extract_skills(job_text)
+
+    matched_skills = list(set(resume_skills) & set(job_skills))
+    missing_skills = list(set(job_skills) - set(resume_skills))
+
+    skill_score = 0
+    if len(job_skills) > 0:
+        skill_score = (len(matched_skills) / len(job_skills)) * 100
+
+    # ---- Final verdict ----
+    if similarity >= 75 and skill_score >= 60:
+        verdict = "Strong Match"
+        confidence = "High"
+    elif similarity >= 50:
+        verdict = "Moderate Match"
+        confidence = "Medium"
+    else:
+        verdict = "Weak Match"
+        confidence = "Low"
 
     return jsonify({
-        "match_score": score
+        "semantic_similarity": round(similarity, 2),
+        "skill_match_percentage": round(skill_score, 2),
+        "matched_skills": matched_skills,
+        "missing_skills": missing_skills,
+        "verdict": verdict,
+        "confidence": confidence
     })
 
-
+# ------------------ RUN ------------------
 if __name__ == "__main__":
     app.run(debug=True)
-app = Flask(__name__)
