@@ -4,19 +4,27 @@ from services.skill_extractor import extract_skills
 
 class HybridMatcher:
     def __init__(self):
-        self.w_bi = 0.4
-        self.w_cross = 0.4
-        self.w_skill = 0.2
+        self.cross_encoder = CrossEncoderMatcher()
 
-    def match(self, resume_text, job_text):
-        bi_score = bi_encoder_match(resume_text, job_text)
-        cross_score = cross_encoder_match(resume_text, job_text)
-        skill_score, matched_skills = skill_match(resume_text, job_text)
+    def match(self, resume_text: str, job_text: str):
+        # 1️⃣ Bi-Encoder score
+        bi_score = match_resume(resume_text, job_text)
 
+        # 2️⃣ Cross-Encoder score
+        cross_score = self.cross_encoder.compute_score(resume_text, job_text)
+
+        # 3️⃣ Skill overlap
+        resume_skills = set(extract_skills(resume_text))
+        job_skills = set(extract_skills(job_text))
+
+        skill_overlap = len(resume_skills & job_skills)
+        skill_score = min(skill_overlap * 10, 100)
+
+        # 4️⃣ Final weighted score
         final_score = (
-            self.w_bi * bi_score +
-            self.w_cross * cross_score +
-            self.w_skill * skill_score
+            0.4 * bi_score +
+            0.5 * cross_score +
+            0.1 * skill_score
         )
 
         return {
@@ -24,5 +32,5 @@ class HybridMatcher:
             "bi_encoder_score": bi_score,
             "cross_encoder_score": cross_score,
             "skill_match_score": skill_score,
-            "matched_skills": matched_skills
+            "matched_skills": list(resume_skills & job_skills)
         }
