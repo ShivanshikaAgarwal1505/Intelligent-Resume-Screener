@@ -1,20 +1,31 @@
 import re
 
-# Simple predefined skill vocabulary (expand later)
-SKILLS_DB = [
-    "python", "java", "c++", "flask", "django",
-    "docker", "kubernetes", "nlp", "machine learning",
-    "deep learning", "pytorch", "tensorflow",
-    "sql", "spark", "aws", "git"
-]
+# Skills with synonyms
+SKILLS_DB = {
+    "python": ["python"],
+    "java": ["java"],
+    "c++": ["c++", "cpp"],
+    "flask": ["flask"],
+    "django": ["django"],
+    "docker": ["docker"],
+    "kubernetes": ["kubernetes", "k8s"],
+    "nlp": ["nlp", "natural language processing"],
+    "machine learning": ["machine learning", "ml"],
+    "deep learning": ["deep learning", "neural networks"],
+    "pytorch": ["pytorch"],
+    "tensorflow": ["tensorflow", "tf"],
+    "sql": ["sql"],
+    "spark": ["spark", "apache spark"],
+    "aws": ["aws", "amazon web services"],
+    "git": ["git"]
+}
 
 def extract_skills(text: str):
     text = text.lower()
     found_skills = []
-
-    for skill in SKILLS_DB:
-        # word-boundary safe matching
-        if re.search(rf"\b{re.escape(skill)}\b", text):
-            found_skills.append(skill)
-
-    return found_skills
+    for skill, synonyms in SKILLS_DB.items():
+        for syn in synonyms:
+            if re.search(rf"\b{re.escape(syn)}\b", text):
+                found_skills.append(skill)
+                break
+    return list(set(found_skills))

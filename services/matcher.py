@@ -1,5 +1,6 @@
 from sklearn.metrics.pairwise import cosine_similarity
 from services.embeddings import get_embedding
+from services.config import VERDICT_THRESHOLDS
 
 def compute_bi_encoder_score(resume_text: str, job_text: str) -> float:
     """
@@ -13,15 +14,15 @@ def compute_bi_encoder_score(resume_text: str, job_text: str) -> float:
 
 def get_verdict(score: float) -> str:
     """
-    Returns human-readable verdict based on score
+    Returns human-readable verdict based on centralized thresholds
     """
-    if score >= 75:
+    if score >= VERDICT_THRESHOLDS["strong"]:
         return "Strong Match"
-    elif score >= 50:
+    elif score >= VERDICT_THRESHOLDS["moderate"]:
         return "Moderate Match"
     else:
         return "Weak Match"
 
-# Backward compatibility (DO NOT REMOVE)
+# Backward compatibility
 def match_resume(resume_text, job_text):
     return compute_bi_encoder_score(resume_text, job_text)
