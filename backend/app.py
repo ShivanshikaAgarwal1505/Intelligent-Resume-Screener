@@ -1,61 +1,70 @@
 from flask import Flask, request, jsonify
-from services.hybrid_matcher import HybridMatcher
-from services.explainer import generate_explanation
-from services.config import VERDICT_THRESHOLDS
-from services.parser import extract_text
+from flask_cors import CORS
+import re
+import os
 import tempfile
 
+from services.hybrid_matcher import HybridMatcher
+from services.parser import extract_text
+
 app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": "*"}})
+
 matcher = HybridMatcher()
+
+def clean_text(text):
+    """Preprocess text for better embedding scores"""
+    text = text.replace("\n", " ")
+    text = re.sub(r"[-•]", "", text)
+    text = re.sub(r"\s+", " ", text)
+    return text.strip().lower()
+
+@app.route("/", methods=["GET"])
+def home():
+    return "Resume Screening System API is running 🚀"
 
 @app.route("/match", methods=["POST"])
 def match_resume_api():
-    # 1️⃣ Check for JSON or file upload
-    data = request.get_json(silent=True)
-    resume_text = job_text = None
+    resume_text = None
+    job_text = None
 
-    # Option 1: JSON body
-    if data:
+    # JSON body
+    if request.is_json:
+        data = request.get_json()
         resume_text = data.get("resume_text")
         job_text = data.get("job_text")
 
-    # Option 2: File upload (resume PDF)
-    if 'resume_file' in request.files:
-        resume_file = request.files['resume_file']
-        if resume_file.filename.endswith(".pdf"):
-            with tempfile.NamedTemporaryFile(delete=True) as tmp:
+    # File upload
+    if "resume_file" in request.files:
+        resume_file = request.files["resume_file"]
+        if resume_file.filename.lower().endswith(".pdf"):
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
                 resume_file.save(tmp.name)
                 resume_text = extract_text(tmp.name)
-        else:
-            return jsonify({"error": "Only PDF files are supported"}), 400
+            os.unlink(tmp.name)
+        job_text = request.form.get("job_text")
 
-        # Job text must still come from JSON
-        if data:
-            job_text = data.get("job_text")
-
-    # Validate input
     if not resume_text or not job_text:
-        return jsonify({"error": "resume_text and job_text are required"}), 400
+        return jsonify({"error": "resume_text (or resume_file) and job_text are required"}), 400
 
-    # ---- Hybrid Matching ----
-    result = matcher.match(resume_text, job_text)
+    # Preprocess texts
+    resume_text_clean = clean_text(resume_text)
+    job_text_clean = clean_text(job_text)
 
-    # ---- Explanation ----
-    result["explanation"] = generate_explanation(result)
+    print("\n===== DEBUG INPUT =====")
+    print("Resume Text:", resume_text_clean[:500])
+    print("Job Text:", job_text_clean[:500])
+    print("======================\n")
 
-    # ---- Verdict Logic ----
-    final_score = result["final_score"]
-    if final_score >= VERDICT_THRESHOLDS["strong"]:
-        verdict = "Strong Match"
-        confidence = "High"
-    elif final_score >= VERDICT_THRESHOLDS["moderate"]:
-        verdict = "Moderate Match"
-        confidence = "Medium"
-    else:
-        verdict = "Weak Match"
-        confidence = "Low"
+    # Call matcher
+    result = matcher.match(resume_text_clean, job_text_clean)
 
-    result["verdict"] = verdict
-    result["confidence"] = confidence
+    print("\n===== DEBUG OUTPUT =====")
+    for k, v in result.items():
+        print(f"{k}: {v}")
+    print("======================\n")
 
     return jsonify(result), 200
+
+if __name__ == "__main__":
+    app.run(debug=True, use_reloader=False)

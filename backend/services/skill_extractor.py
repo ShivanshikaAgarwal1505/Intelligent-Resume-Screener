@@ -1,23 +1,19 @@
 import re
 
-# Skills with synonyms
 SKILLS_DB = {
+    # Technical skills
     "python": ["python"],
     "java": ["java"],
-    "c++": ["c++", "cpp"],
-    "flask": ["flask"],
-    "django": ["django"],
-    "docker": ["docker"],
-    "kubernetes": ["kubernetes", "k8s"],
-    "nlp": ["nlp", "natural language processing"],
-    "machine learning": ["machine learning", "ml"],
-    "deep learning": ["deep learning", "neural networks"],
-    "pytorch": ["pytorch"],
-    "tensorflow": ["tensorflow", "tf"],
-    "sql": ["sql"],
-    "spark": ["spark", "apache spark"],
-    "aws": ["aws", "amazon web services"],
-    "git": ["git"]
+    # ... existing tech skills
+
+    # Soft / retail skills
+    "customer service": ["customer service", "serving customers", "client support"],
+    "teamwork": ["teamwork", "team player", "collaboration", "collaborative"],
+    "cash handling": ["cash handling", "cash register", "money management"],
+    "coaching": ["coaching", "mentoring", "trainer", "assistant coach"],
+    "communication": ["communication", "communicate", "speaking", "presentation"],
+    "organization": ["organization", "organized", "time management", "planning"],
+    "sports equipment knowledge": ["sports equipment", "sports gear"]
 }
 
 def extract_skills(text: str):
